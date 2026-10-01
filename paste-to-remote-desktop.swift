@@ -1,20 +1,6 @@
-import AppKit
 import ApplicationServices
+import AppKit
 import Foundation
-
-private let targetBundleIdentifiers = [
-    "com.microsoft.rdc.macos",
-    "com.microsoft.rdc.mac",
-    "com.microsoft.WindowsApp",
-    "com.microsoft.windowsapp",
-]
-
-private let targetApplicationNames = [
-    "Microsoft Remote Desktop",
-    "Windows App",
-]
-
-private let activationDelay: useconds_t = 250_000
 
 @main
 struct PasteToRemoteDesktop {
@@ -29,34 +15,11 @@ struct PasteToRemoteDesktop {
             exit(1)
         }
 
-        guard let remoteDesktopApp = findRemoteDesktopApp() else {
-            print("Microsoft Remote Desktop or Windows App is not running")
-            exit(1)
-        }
-
-        remoteDesktopApp.activate(options: [.activateAllWindows])
-        usleep(activationDelay)
-
         do {
             try typeTextWithSystemEvents(normalizedTextForSystemEventsTyping(text))
         } catch {
             print("Failed to type clipboard text: \(error.localizedDescription)")
             exit(1)
-        }
-    }
-
-    private static func findRemoteDesktopApp() -> NSRunningApplication? {
-        for bundleIdentifier in targetBundleIdentifiers {
-            if let app = NSRunningApplication.runningApplications(
-                withBundleIdentifier: bundleIdentifier
-            ).first {
-                return app
-            }
-        }
-
-        return NSWorkspace.shared.runningApplications.first { app in
-            guard let localizedName = app.localizedName else { return false }
-            return targetApplicationNames.contains(localizedName)
         }
     }
 

@@ -11,8 +11,26 @@ struct PasteToRemoteDesktopTests {
 
         assertContains(
             systemEventsTypingScript,
+            "tell application id \"com.apple.systemevents\"",
+            "addresses System Events by bundle identifier"
+        )
+
+        assertContains(
+            systemEventsTypingScript,
+            "tell application id \"com.apple.systemevents\" to launch",
+            "launches System Events before GUI scripting"
+        )
+
+        assertContains(
+            systemEventsTypingScript,
             "keystroke (character i of fulltext)",
             "types through System Events one character at a time"
+        )
+
+        assertContains(
+            systemEventsTypingScript,
+            "set frontmost of targetProcess to true",
+            "activates Remote Desktop through System Events before typing"
         )
 
         assertEqual(
