@@ -9,8 +9,10 @@
 | **Toggle Chrome Sidebar** | 在 Chrome 中查找“展开标签页 / 收起标签页”按钮并自动点击，切换标签页侧边栏。支持中英文界面。 |
 | **Paste to Remote Desktop** | 将 macOS 剪贴板中的文本，以模拟键盘输入的方式输入 Microsoft Remote Desktop 或 Windows App。 |
 | **UniVPN Toggle** | 读取指定路由判断 UniVPN 当前状态，确认后通过菜单栏辅助功能切换连接，并等待路由实际变化。 |
+| **Switch Codex Account** | 从参数下拉框选择账号，切换 Codex 凭据与 provider 配置，并询问是否重启 Codex。 |
+| **Refresh Codex Accounts** | 根据 `~/.codex/providers/` 的子目录重新生成账号下拉选项。 |
 
-这些命令使用 macOS Accessibility API，因此不依赖固定屏幕坐标，适用于不同的显示器和分辨率。
+前三个命令使用 macOS Accessibility API，因此不依赖固定屏幕坐标。Codex 账号命令直接操作配置文件，无需辅助功能权限。
 
 ## 环境要求
 
@@ -58,6 +60,39 @@
 5. 在 macOS **系统设置 → 隐私与安全性 → 辅助功能** 中允许 Raycast。首次使用远程桌面输入时，macOS 可能还会请求自动化/System Events 权限。
 
 ## 使用方法
+
+### Switch Codex Account
+
+依赖 [uv](https://docs.astral.sh/uv/getting-started/installation/)；首次运行会自动准备 Python 3.11+ 和 `tomlkit`，需要网络，后续使用缓存。账号脚本无需编译 Swift。
+
+将以下文件放在同一 Raycast 脚本目录：
+
+```bash
+mkdir -p ~/Documents/Raycast
+cp codex-account.py refresh-codex-accounts.sh ~/Documents/Raycast/
+~/Documents/Raycast/refresh-codex-accounts.sh
+```
+
+该命令会在目标目录生成可执行的 `switch-codex-account.sh`。在 Raycast 设置的 **Extensions → Script Commands → Add Directories** 中添加 `~/Documents/Raycast/`，运行 **Switch Codex Account** 并选择账号。也可以直接添加本仓库目录，先运行其中的 `./refresh-codex-accounts.sh`。
+
+账号目录格式：
+
+```text
+~/.codex/providers/<账号名>/
+  auth.json          # 可选；存在时须为合法 JSON，缺少时保留当前 auth.json
+  .env               # 可选；缺少时删除当前 ~/.codex/.env
+  config.toml.plus    # 可选；只读取 model_provider 和 model_providers.custom
+```
+
+切换前先检查当前 `~/.codex/auth.json`：如果 `auth_mode` 为 `chatgpt`，将其原样覆盖保存到 `~/.codex/providers/origin/auth.json`（目录不存在则创建）。备份失败则停止切换；当前凭据不存在或不是 `chatgpt` 时不更新备份。随后才读取目标账号，因此选择 `origin` 时也会使用刚备份的凭据。该备份在后续切换失败时仍保留。
+
+验证目标输入后，删除旧 `.env` 并复制所选账号的 `.env`（如果存在）。目标 `auth.json` 存在时验证并复制，不存在时保留当前文件，当前也不存在时不会创建。从当前 `config.toml` 移除根级 `model_provider` 和 `[model_providers.custom]`（包括其子表），然后从 `config.toml.plus` 补回相应内容，包括 custom 表内的认证字段。保留其他配置和注释，根级字段放在表之前；账号目录中的 `config.toml` 不会被复制。当前配置文件不存在时会创建。
+
+凭据以仅当前用户可读写的权限保存。脚本对切换操作加锁，使用原子文件替换，普通写入错误时恢复切换前内容；多个文件的更新无法作为一个文件系统事务保证断电恢复。
+
+完成后显示“重新启动Codex桌面应用”：点击“确认”正常退出并重新打开 Codex，未启动时直接启动；点击“稍后”或取消保留已切换的配置。首次重启时 macOS 可能请求自动化权限。运行中的 Codex 会话需要重启后才使用新账号。
+
+新增、删除或重命名账号目录后，运行 **Refresh Codex Accounts**。Raycast 参数下拉框使用静态元数据，因此需要这一步刷新；若界面仍显示旧选项，可在 Raycast 运行 **Reload Script Directories**。
 
 ### Toggle Chrome Sidebar
 
@@ -120,6 +155,12 @@ UNIVPN_ROUTE_IP="192.168.11.254" \
 | `build.sh` | 将 3 个 Swift 主程序编译到 `~/Documents/Raycast/`。 |
 
 ## 测试
+
+Codex 账号测试只使用临时目录中的虚构凭据，不操作实际账号，也不启动或退出应用：
+
+```bash
+uv run --with tomlkit python codex-account-tests.py
+```
 
 测试文件不会被 `build.sh` 编译。可以单独运行：
 
